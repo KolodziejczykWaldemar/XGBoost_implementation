@@ -1,0 +1,396 @@
+---
+title: "XGBoost usage"
+output: html_notebook
+---
+
+```{r}
+source('XGBoost.R')
+library(caret)
+library(PRROC)
+```
+# Regression problem example with Boston housing dataset. 
+
+```{r}
+dataset <- read.csv('C:/Users/Waldemar/Documents/R/BostonHousing.csv', header=TRUE, sep=',')
+print(dataset)
+```
+
+Prepare train and test set.
+
+```{r}
+set.seed(101)
+sample <- sample.int(n = nrow(dataset), size = floor(.75*nrow(dataset)), replace = F)
+train_set <- dataset[sample, ]
+test_set  <- dataset[-sample, ]
+print(train_set)
+```
+
+Train created XGBoost model on training dataset.
+```{r}
+fit <- xgboost(input_formula = medv ~ crim + zn + indus + nox + rm + age + dis + rad + tax + ptratio + b + lstat, 
+               dataset = train_set, 
+               task_type = 'regression',
+               hiperparms = list(eta = 0.3, 
+                                 lambda = 0,
+                                 gamma = 0, 
+                                 n_trees = 20))
+```
+
+## Examining train set predictions
+
+```{r}
+y_pred <- predict(fit,
+                  dataset = train_set)
+```
+
+Plot residual errors
+
+```{r}
+plot(train_set$medv,
+     y_pred, 
+     col='blue',
+     main="Prediction error plot",
+     xlab="Real values",
+     ylab="Predicted values")
+lines(test_set$medv, test_set$medv)
+```
+
+```{r}
+hist(train_set$medv - y_pred,
+     main="Histogram of residuals",
+     xlab="Residuals")
+```
+
+Error measures
+
+```{r}
+postResample(pred = y_pred, obs = train_set$medv)
+
+```
+
+
+
+## Examining test set predictions
+
+```{r}
+y_pred <- predict(fit,
+                  dataset = test_set)
+```
+
+Plot residual errors
+
+```{r}
+plot(test_set$medv,
+     y_pred, 
+     col='blue',
+     main="Prediction error plot",
+     xlab="Real values",
+     ylab="Predicted values")
+lines(test_set$medv, test_set$medv)
+```
+
+```{r}
+hist(test_set$medv - y_pred,
+     main="Histogram of residuals",
+     xlab="Residuals")
+```
+
+Error measures
+
+```{r}
+postResample(pred = y_pred, obs = test_set$medv)
+
+```
+As we see, overfitting occured. We can examine several combinations of regularization hiperparameters to find less overfitted model. 
+
+```{r}
+
+lambda_list = c(0.1, 1, 5)
+gamma_list = c(0.1, 1, 5)
+
+
+for (lambda in lambda_list) {
+  for (gamma in gamma_list) {
+    fit <- xgboost(input_formula = medv ~ crim + zn + indus + nox + rm + age + dis + rad + tax + ptratio + b + lstat,
+                   dataset = train_set, 
+                   task_type = 'regression',
+                   hiperparms = list(eta = 0.3,
+                                     lambda = lambda,
+                                     gamma = gamma, 
+                                     n_trees = 20))
+    y_pred_train <- predict(fit,
+                            dataset = train_set)
+    
+    y_pred_test <- predict(fit,
+                           dataset = test_set)
+    
+    rmse_train = postResample(pred = y_pred_train, obs = train_set$medv)[1]
+    rmse_test = postResample(pred = y_pred_test, obs = test_set$medv)[1]
+    
+    print(paste('lambda: ', lambda, ' gamma: ', gamma, ' RMSE train: ', rmse_train, ' RMSE test: ', rmse_test))
+        
+        
+        
+  }
+}
+```
+
+Examine the best selected model
+```{r}
+fit <- xgboost(input_formula = medv ~ crim + zn + indus + nox + rm + age + dis + rad + tax + ptratio + b + lstat, 
+               dataset = train_set, 
+               task_type = 'regression',
+               hiperparms = list(eta = 0.3, 
+                                 lambda = 1,
+                                 gamma = 0.1, 
+                                 n_trees = 20))
+```
+
+## Examining train set predictions
+
+```{r}
+y_pred <- predict(fit,
+                  dataset = train_set)
+```
+
+Plot residual errors
+
+```{r}
+plot(train_set$medv,
+     y_pred, 
+     col='blue',
+     main="Prediction error plot",
+     xlab="Real values",
+     ylab="Predicted values")
+lines(test_set$medv, test_set$medv)
+```
+
+```{r}
+hist(train_set$medv - y_pred,
+     main="Histogram of residuals",
+     xlab="Residuals")
+```
+
+Error measures
+
+```{r}
+postResample(pred = y_pred, obs = train_set$medv)
+
+```
+
+## Examining test set predictions
+
+```{r}
+y_pred <- predict(fit,
+                  dataset = test_set)
+```
+
+Plot residual errors
+
+```{r}
+plot(test_set$medv,
+     y_pred, 
+     col='blue',
+     main="Prediction error plot",
+     xlab="Real values",
+     ylab="Predicted values")
+lines(test_set$medv, test_set$medv)
+```
+
+```{r}
+hist(test_set$medv - y_pred,
+     main="Histogram of residuals",
+     xlab="Residuals")
+```
+
+Error measures
+
+```{r}
+postResample(pred = y_pred, obs = test_set$medv)
+
+```
+
+
+
+# Classifiction problem example with titanic dataset.
+
+```{r}
+titanic <- read.csv('C:/Users/Waldemar/Documents/R/titanic.csv', header=TRUE, sep=',')
+print(titanic)
+```
+
+Prepare dataset for prediction
+
+```{r}
+dataset <- subset(titanic, select=c(y, x1, x2, x3, x4, x5, x6))
+dataset$x2 <- as.integer(dataset$x2) - 1
+print(dataset)
+```
+
+Prepare train and test set.
+```{r}
+sample <- sample.int(n = nrow(dataset), size = floor(.75*nrow(dataset)), replace = F)
+train_set <- dataset[sample, ]
+test_set  <- dataset[-sample, ]
+print(train_set)
+```
+
+Train created XGBoost model on the training dataset.
+```{r}
+fit <- xgboost(input_formula = y ~ x1 + x2 + x3 + x4 + x5 + x6,
+               dataset = train_set,
+               task_type = 'classification',
+               hiperparms = list(eta = 1,
+                                 lambda = 0,
+                                 gamma = 0,
+                                 n_trees = 20))
+```
+
+## Examining train set predictions
+
+```{r}
+y_pred <- predict(fit,
+                  dataset = train_set)
+```
+
+
+```{r}
+hist(train_set$y - y_pred,
+     main="Histogram of residuals",
+     xlab="Residuals")
+```
+
+
+```{r}
+confusionMatrix(factor(as.integer(y_pred > 0.5)), factor(train_set$y))
+```
+
+ROC curve.
+```{r}
+PRROC_obj <- roc.curve(scores.class0 = y_pred, 
+                       weights.class0 = train_set$y,
+                       curve = TRUE)
+plot(PRROC_obj)
+```
+
+## Examining test set predictions
+
+```{r}
+y_pred <- predict(fit,
+                  dataset = test_set)
+```
+
+
+```{r}
+hist(test_set$y - y_pred,
+     main="Histogram of residuals",
+     xlab="Residuals")
+```
+
+
+```{r}
+confusionMatrix(factor(as.integer(y_pred > 0.5)), factor(test_set$y))
+```
+
+ROC curve.
+```{r}
+PRROC_obj <- roc.curve(scores.class0 = y_pred, 
+                       weights.class0 = test_set$y,
+                       curve = TRUE)
+plot(PRROC_obj)
+```
+As in regression problem, overfitting occured. We can examine several combinations of regularization hiperparameters to find less overfitted model. 
+```{r}
+
+lambda_list = c(0.1, 1, 5)
+gamma_list = c(0.1, 1, 5)
+
+
+for (lambda in lambda_list) {
+  for (gamma in gamma_list) {
+    fit <- xgboost(input_formula = y ~ x1 + x2 + x3 + x4 + x5 + x6,
+                   dataset = train_set, 
+                   task_type = 'classification',
+                   hiperparms = list(eta = 0.3,
+                                     lambda = lambda,
+                                     gamma = gamma, 
+                                     n_trees = 20))
+    y_pred_train <- predict(fit,
+                            dataset = train_set)
+    
+    y_pred_test <- predict(fit,
+                           dataset = test_set)
+    
+    acc_train = confusionMatrix(factor(as.integer(y_pred_train > 0.5)), factor(train_set$y))$overall['Accuracy']
+    acc_test = confusionMatrix(factor(as.integer(y_pred_test > 0.5)), factor(test_set$y))$overall['Accuracy']
+    
+    print(paste('lambda: ', lambda, ' gamma: ', gamma, ' ACC train: ', acc_train, ' ACC test: ', acc_test))
+        
+  }
+}
+```
+
+
+```{r}
+fit <- xgboost(input_formula = y ~ x1 + x2 + x3 + x4 + x5 + x6,
+               dataset = train_set,
+               task_type = 'classification',
+               hiperparms = list(eta = 0.3,
+                                 lambda = 0.1,
+                                 gamma = 5,
+                                 n_trees = 20))
+```
+
+## Examining train set predictions
+
+```{r}
+y_pred <- predict(fit,
+                  dataset = train_set)
+```
+
+
+```{r}
+hist(train_set$y - y_pred,
+     main="Histogram of residuals",
+     xlab="Residuals")
+```
+
+
+```{r}
+confusionMatrix(factor(as.integer(y_pred > 0.5)), factor(train_set$y))
+```
+
+ROC curve.
+```{r}
+PRROC_obj <- roc.curve(scores.class0 = y_pred, 
+                       weights.class0 = train_set$y,
+                       curve = TRUE)
+plot(PRROC_obj)
+```
+
+## Examining test set predictions
+
+```{r}
+y_pred <- predict(fit,
+                  dataset = test_set)
+```
+
+
+```{r}
+hist(test_set$y - y_pred,
+     main="Histogram of residuals",
+     xlab="Residuals")
+```
+
+
+```{r}
+confusionMatrix(factor(as.integer(y_pred > 0.5)), factor(test_set$y))
+```
+
+ROC curve.
+```{r}
+PRROC_obj <- roc.curve(scores.class0 = y_pred, 
+                       weights.class0 = test_set$y,
+                       curve = TRUE)
+plot(PRROC_obj)
+```

@@ -1,0 +1,115 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+
+```{r}
+source('XGBoost.R')
+source('LogitBoost.R')
+```
+
+Create dataset. 
+
+```{r}
+x1 = (1: 1000)/100 - 5
+Y = as.integer(exp(x1)/(1 + exp(x1)) > 0.4)
+dataset <- data.frame("X1"= x1, "y"= Y)
+dataset[c(12, 120, 121, 123, 128, 183, 252, 444, 333, 389),  "y"] <- 1
+dataset[c(756:787),  "y"] <- 0
+
+
+plot(dataset$X1, 
+      dataset$y, 
+      col='green',
+      main="Dataset")
+```
+Train LogitBoost model.
+```{r}
+eta_list = c(0.1, 0.3, 0.5, 0.9)
+for (eta in eta_list) {
+  fit_lb <- logitboost(input_formula = y ~ X1,
+                       dataset = dataset,
+                       hiperparms = list(eta = eta,
+                                         n_trees = 20))
+  
+   y_pred <- predict(fit_lb,
+                   dataset = dataset)
+
+  plot(dataset$X1, 
+       dataset$y, 
+       col='green',
+       main=paste("Logit Boost - trees: ", 20, 
+                  '  step_size: ', eta,
+                  sep=''))
+  lines(dataset$X1, y_pred)
+}
+```
+
+
+
+
+Train XGBoost model.
+```{r}
+fit <- xgboost(input_formula = y ~ X1,
+                  dataset = dataset,
+                  task_type = 'classification',
+                  hiperparms = list(eta = 0.3,
+                                    lambda = 0,
+                                    gamma = 0, 
+                                    n_trees = 20))
+
+y_pred <- predict(fit,
+                  dataset = dataset)
+
+plot(dataset$X1, 
+     dataset$y, 
+     col='green',
+     main=paste("XGBoost - trees: ", 20, 
+                  '  step_size: ', eta,
+                  sep=''))
+lines(dataset$X1, y_pred)
+```
+
+Fitting a model with different hiperparmeters
+```{r}
+eta_list = c(0.1, 0.5, 1)
+lambda_list = c(0.1, 1, 5)
+gamma_list = c(0.1, 1, 5)
+trees_list = c(5, 20, 50)
+
+for (eta in eta_list) {
+  for (lambda in lambda_list) {
+    for (gamma in gamma_list) {
+      for (trees in trees_list) {
+        fit <- xgboost(input_formula = y ~ X1, 
+               dataset = dataset, 
+               task_type = 'classification',
+               hiperparms = list(eta = eta, 
+                                 lambda = lambda,
+                                 gamma = gamma, 
+                                 n_trees = trees))
+         y_pred <- predict(fit,
+                   dataset = dataset)
+
+
+        plot(dataset$X1, 
+             dataset$y, 
+             col='green',
+             main=paste("XGBoost - trees: ", trees, 
+                    '  lambda: ', lambda,
+                    '  gamma: ', gamma,
+                    '  step_size: ', eta,
+                    sep=''))
+        lines(dataset$X1, y_pred)
+      }
+    }
+    
+  }
+}
+
+```
+

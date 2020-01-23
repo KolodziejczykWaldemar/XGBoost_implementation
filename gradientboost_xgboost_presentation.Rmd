@@ -1,0 +1,106 @@
+---
+title: "XGBoost presentation"
+output: html_notebook
+---
+```{r}
+source('XGBoost.R')
+source('GradientBoost.R')
+```
+Generate sample dataset with nonlinear function with outliers and random noise.
+```{r}
+x1 = (1: 1000)
+Y = log(2 * x1)
+ # Y = sin(0.05 * x1)
+dataset <- data.frame("X1"= x1, "y"= Y)
+dataset[c(600:700),  "y"] <- 0.002 * c(600:700)
+dataset[c(156:157),  "y"] <- 0.01 * c(156:157)
+dataset[c(266:269),  "y"] <- 0.01 * c(266:269)
+dataset[c(856:857),  "y"] <- 0.002 * c(856:857)
+dataset["y"] <- dataset["y"] + rnorm(length(Y), 0, 0.1)
+
+plot(dataset$X1, 
+      dataset$y, 
+      col='green',
+      main="Dataset")
+```
+Fit Gradient Boost model
+```{r}
+eta_list = c(0.1, 0.5, 1)
+for (eta in eta_list) {
+  fit_gb <- gradientboost(input_formula = y ~ X1, 
+                       dataset = dataset, 
+                       hiperparms = list(eta = eta,
+                                         n_trees = 20))
+  
+   y_pred <- predict(fit_gb,
+                   dataset = dataset)
+
+  plot(dataset$X1, 
+       dataset$y, 
+       col='green',
+       main=paste("Gradient Boost - trees: ", 20, 
+                  '  step_size: ', eta,
+                  sep=''))
+  lines(dataset$X1, y_pred)
+}
+```
+Fit XGBoost model
+```{r}
+fit <- xgboost(input_formula = y ~ X1, 
+               dataset = dataset, 
+               task_type = 'regression',
+               hiperparms = list(eta = 1, 
+                                 lambda = 0.5,
+                                 gamma = 1, 
+                                 n_trees = 21))
+```
+Predict 
+```{r}
+ y_pred <- predict(fit,
+                   dataset = dataset)
+
+
+plot(dataset$X1, 
+     dataset$y, 
+     col='green',
+     main="Fit of XGBoost")
+lines(dataset$X1, y_pred)
+```
+Fitting a model with different hiperparmeters
+```{r}
+eta_list = c(0.1, 0.5, 1)
+lambda_list = c(0.1, 1, 5)
+gamma_list = c(0.1, 1, 5)
+trees_list = c(5, 20, 50)
+
+for (eta in eta_list) {
+  for (lambda in lambda_list) {
+    for (gamma in gamma_list) {
+      for (trees in trees_list) {
+        fit <- xgboost(input_formula = y ~ X1, 
+               dataset = dataset, 
+               task_type = 'regression',
+               hiperparms = list(eta = eta, 
+                                 lambda = lambda,
+                                 gamma = gamma, 
+                                 n_trees = trees))
+         y_pred <- predict(fit,
+                   dataset = dataset)
+
+
+        plot(dataset$X1, 
+             dataset$y, 
+             col='green',
+             main=paste("XGBoost - trees: ", trees, 
+                    '  lambda: ', lambda,
+                    '  gamma: ', gamma,
+                    '  step_size: ', eta,
+                    sep=''))
+        lines(dataset$X1, y_pred)
+      }
+    }
+    
+  }
+}
+
+```
